@@ -1,88 +1,99 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+
 const { kakao } = window;
 
 function App() {
+  const [map, setMap] = useState(null);
+  const [marker, setMarker] = useState(null);
+
   useEffect(() => {
-    // 스크립트 로드 이후에 kakao.maps.services 확인
-    if (!kakao.maps.services) {
-      console.error("Kakao Maps API가 로드되지 않았습니다.");
-      return;
-    }
-
-    const mapContainer = document.getElementById("map");
-    const mapOption = {
+    const container = document.getElementById("map");
+    const options = {
       center: new kakao.maps.LatLng(33.450701, 126.570667),
-      level: 1,
+      level: 3,
     };
-    const map = new kakao.maps.Map(mapContainer, mapOption);
 
-    const markerPosition = new kakao.maps.LatLng(33.450701, 126.570667);
-    const marker = new kakao.maps.Marker({
-      position: markerPosition,
-    });
-
-    marker.setMap(map);
-
-    // infowindow를 const로 선언
-    const iwContent =
-      '<div style="padding:5px;">Hello World! <br><a href="https://map.kakao.com/link/map/Hello World!,33.450701,126.570667" style="color:blue" target="_blank">큰지도보기</a> <a href="https://map.kakao.com/link/to/Hello World!,33.450701,126.570667" style="color:blue" target="_blank">길찾기</a></div>';
-    const iwPosition = new kakao.maps.LatLng(33.450701, 126.570667);
-
-    const infowindow = new kakao.maps.InfoWindow({
-      position: iwPosition,
-      content: iwContent,
-    });
-
-    infowindow.open(map, marker);
-
-    marker.setMap(map);
+    const newMap = new kakao.maps.Map(container, options);
+    setMap(newMap);
 
     function setCenter() {
-      var moveLatLon = new kakao.maps.LatLng(33.452613, 126.570888);
-      map.setCenter(moveLatLon);
+      const moveLatLon = new kakao.maps.LatLng(33.452613, 126.570888);
+      newMap.setCenter(moveLatLon);
+      displayLevel();
     }
 
     function panTo() {
-      var moveLatLon = new kakao.maps.LatLng(33.45058, 126.574942);
-      map.panTo(moveLatLon);
+      const moveLatLon = new kakao.maps.LatLng(33.45058, 126.574942);
+      newMap.panTo(moveLatLon);
+      displayLevel();
     }
 
-    // 함수 호출 위치 조정
-    setCenter();
-    panTo();
+    function zoomIn() {
+      const level = newMap.getLevel();
+      newMap.setLevel(level - 1);
+      displayLevel();
+    }
 
-    var geocoder = new kakao.maps.services.Geocoder();
-    geocoder.addressSearch(
-      "제주특별자치도 제주시 첨단로 242",
-      function (result, status) {
-        if (status === kakao.maps.services.Status.OK) {
-          var coords = new kakao.maps.LatLng(result[0].y, result[0].x);
-          var marker = new kakao.maps.Marker({
-            map: map,
-            position: coords,
-          });
-          var infowindow = new kakao.maps.InfoWindow({
-            content:
-              '<div style="width:150px;text-align:center;padding:6px 0;">우리회사</div>',
-          });
-          infowindow.open(map, marker);
-          map.setCenter(coords);
-        }
-      }
-    );
-  }, []); // useEffect의 의존성 배열을 빈 배열로 설정하여 한 번만 실행되도록 함
+    function zoomOut() {
+      const level = newMap.getLevel();
+      newMap.setLevel(level + 1);
+      displayLevel();
+    }
+
+    function displayLevel() {
+      const levelEl = document.getElementById("maplevel");
+      levelEl.innerHTML =
+        "현재 지도 레벨은 " + newMap.getLevel() + " 레벨 입니다.";
+    }
+
+    // 함수들을 외부로 노출
+    window.zoomIn = zoomIn;
+    window.zoomOut = zoomOut;
+
+    setMarker(new kakao.maps.Marker({ map: newMap }));
+
+    panTo();
+    setCenter();
+    displayLevel();
+  }, []); // Empty dependency array to run the effect only once
+
+  useEffect(() => {
+    // map이 변경될 때마다 마커의 클릭 이벤트를 설정
+    if (map && marker) {
+      kakao.maps.event.addListener(map, "click", function (mouseEvent) {
+        const latlng = mouseEvent.latLng;
+        marker.setPosition(latlng);
+
+        const message =
+          "클릭한 위치의 위도는 " +
+          latlng.getLat() +
+          " 이고, " +
+          "경도는 " +
+          latlng.getLng() +
+          " 입니다";
+
+        const resultDiv = document.getElementById("clickLatlng");
+        resultDiv.innerHTML = message;
+      });
+    }
+  }, [map, marker]);
 
   return (
-    <div className="App">
+    <div>
       <div
         id="map"
         style={{
-          padding: "0",
-          margin: "0",
-          width: "100vw",
-          height: "100vh",
+          width: "500px",
+          height: "350px",
+          position: "relative",
         }}
       ></div>
+      <div>
+        <button onClick={() => window.zoomIn()}>지도 레벨 - 1</button>
+        <button onClick={() => window.zoomOut()}>지도 레벨 + 1</button>
+        <span id="maplevel"></span>
+      </div>
+      <div id="clickLatlng"></div>
     </div>
   );
 }
